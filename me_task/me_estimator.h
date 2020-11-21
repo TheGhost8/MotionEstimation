@@ -51,6 +51,12 @@ public:
     /// Size of a block covered by a motion vector. Do not change.
     static constexpr size_t BLOCK_SIZE = 16;
 
+    /**
+     * Step to 4 directions (up, down, left, right) from current block while searching.
+     * <= BLOCK_SIZE
+     */
+    static constexpr int STEP = 4;
+
 private:
     /// Frame width (not including borders)
     const size_t width;

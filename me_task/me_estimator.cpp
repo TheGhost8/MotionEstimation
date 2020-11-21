@@ -53,8 +53,10 @@ void MotionEstimator::CEstimate(const unsigned char* cur_Y,
         prev_map.emplace(ShiftDir::UPLEFT, prev_Y_upleft);
     }
 
-    for (size_t i = 0; i < num_blocks_vert; ++i) {
-        for (size_t j = 0; j < num_blocks_hor; ++j) {
+    for (size_t i = 0; i < num_blocks_vert; ++i)
+    {
+        for (size_t j = 0; j < num_blocks_hor; ++j)
+        {
             const auto hor_offset = j * BLOCK_SIZE;
             const auto vert_offset = first_row_offset + i * BLOCK_SIZE * width_ext;
             const auto cur = cur_Y + vert_offset + hor_offset;
@@ -64,7 +66,57 @@ void MotionEstimator::CEstimate(const unsigned char* cur_Y,
 
             // PUT YOUR CODE HERE
             
+            for (const auto& prev_pair : prev_map)
+            {
+                const auto prev = prev_pair.second + vert_offset + hor_offset;
+
+                int previous_step = 0;
+                int points_checked = 8;
+                std::pair<int, int> checked_coords[points_checked];
+                for (int step = STEP; step > 0; step=int(step/2))
+                {
+                    if (step == STEP)
+                    {
+                        checked_coords[0] = std::make_pair(step, 0); // up
+                        checked_coords[1] = std::make_pair(step, step);
+                        checked_coords[2] = std::make_pair(0, step); // right
+                        checked_coords[3] = std::make_pair(0-step, step);
+                        checked_coords[4] = std::make_pair(0-step, 0); // down
+                        checked_coords[5] = std::make_pair(0-step, 0-step);
+                        checked_coords[6] = std::make_pair(0, 0-step); // left
+                        checked_coords[7] = std::make_pair(step, 0-step);
+                    }
+                    else
+                    {
+                        int prev_x = checked_coords[previous_step].second;
+                        int prev_y = checked_coords[previous_step].first;
+                        checked_coords[0] = std::make_pair(prev_y+step, prev_x); // up
+                        checked_coords[1] = std::make_pair(prev_y+step, prev_x+step);
+                        checked_coords[2] = std::make_pair(prev_y, prev_x+step); // right
+                        checked_coords[3] = std::make_pair(prev_y-step, prev_x+step);
+                        checked_coords[4] = std::make_pair(prev_y-step, prev_x); // down
+                        checked_coords[5] = std::make_pair(prev_y-step, prev_x-step);
+                        checked_coords[6] = std::make_pair(prev_y, prev_x-step); // left
+                        checked_coords[7] = std::make_pair(prev_y+step, prev_x-step);
+                    }
+                    for (int k = 0; k < points_checked; ++k)
+                    {
+                        const auto comp = prev + checked_coords[k].first * width_ext + checked_coords[k].second;
+                        const int error = GetErrorSAD_16x16(cur, comp, width_ext);
+                        if (error < best_vector.error)
+                        {
+                            best_vector.x = checked_coords[k].second;
+                            best_vector.y = checked_coords[k].first;
+                            best_vector.shift_dir = prev_pair.first;
+                            best_vector.error = error;
+                            previous_step = k;
+                        }
+                    }
+                }
+            }
+            
             // Brute force
+            /*
             for (const auto& prev_pair : prev_map) {
                 const auto prev = prev_pair.second + vert_offset + hor_offset;
                 for (int y = -BORDER; y <= BORDER; ++y) {
@@ -80,6 +132,7 @@ void MotionEstimator::CEstimate(const unsigned char* cur_Y,
                     }
                 }
             }
+            */
             // Split into four subvectors if the error is too large
             if (best_vector.error > 1000) {
                 best_vector.Split();
@@ -94,8 +147,56 @@ void MotionEstimator::CEstimate(const unsigned char* cur_Y,
 
                     for (const auto& prev_pair : prev_map) {
                         const auto prev = prev_pair.second + vert_offset + hor_offset;
-
-                        // PUT YOUR CODE HERE
+                        
+                        int previous_step = 0;
+                        int points_checked = 8;
+                        std::pair<int, int> checked_coords[points_checked];
+                        for (int step = STEP; step > 0; step=int(step/2))
+                        {
+                            if (step == STEP)
+                            {
+                                checked_coords[0] = std::make_pair(step, 0); // up
+                                checked_coords[1] = std::make_pair(step, step);
+                                checked_coords[2] = std::make_pair(0, step); // right
+                                checked_coords[3] = std::make_pair(0-step, step);
+                                checked_coords[4] = std::make_pair(0-step, 0); // down
+                                checked_coords[5] = std::make_pair(0-step, 0-step);
+                                checked_coords[6] = std::make_pair(0, 0-step); // left
+                                checked_coords[7] = std::make_pair(step, 0-step);
+                            }
+                            else
+                            {
+                                int prev_x = checked_coords[previous_step].second;
+                                int prev_y = checked_coords[previous_step].first;
+                                checked_coords[0] = std::make_pair(prev_y+step, prev_x); // up
+                                checked_coords[1] = std::make_pair(prev_y+step, prev_x+step);
+                                checked_coords[2] = std::make_pair(prev_y, prev_x+step); // right
+                                checked_coords[3] = std::make_pair(prev_y-step, prev_x+step);
+                                checked_coords[4] = std::make_pair(prev_y-step, prev_x); // down
+                                checked_coords[5] = std::make_pair(prev_y-step, prev_x-step);
+                                checked_coords[6] = std::make_pair(prev_y, prev_x-step); // left
+                                checked_coords[7] = std::make_pair(prev_y+step, prev_x-step);
+                            }
+                            for (int k = 0; k < points_checked; ++k)
+                            {
+                                const auto comp = prev + checked_coords[k].first * width_ext + checked_coords[k].second;
+                                const int error = GetErrorSAD_8x8(cur, comp, width_ext);
+                                if (error < subvector.error)
+                                {
+                                    subvector.x = checked_coords[k].second;
+                                    subvector.y = checked_coords[k].first;
+                                    subvector.shift_dir = prev_pair.first;
+                                    subvector.error = error;
+                                    previous_step = k;
+                                }
+                            }    
+                        }
+                    }
+                        
+                    // PUT YOUR CODE HERE
+                    /*
+                    for (const auto& prev_pair : prev_map) {
+                        const auto prev = prev_pair.second + vert_offset + hor_offset;
                         for (int y = -BORDER; y <= BORDER; ++y) {
                             for (int x = -BORDER; x <= BORDER; ++x) {
                                 const auto comp = prev + y * width_ext + x;
@@ -110,6 +211,7 @@ void MotionEstimator::CEstimate(const unsigned char* cur_Y,
                             }
                         }
                     }
+                    */
                 }
 
                 if (best_vector.SubVector(0).error

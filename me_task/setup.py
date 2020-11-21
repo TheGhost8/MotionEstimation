@@ -14,8 +14,8 @@ ext_modules = [
 setup(
     name='library',
     version='0.0.1',
-    author='YOUR NAME', #Please enter your name, group.
-    author_email='YOUR EMAIL',
+    author='Ivan Tankaev 321', #Please enter your name, group.
+    author_email='vantank36@gmail.com',
     description='ME estimator template for MSU VideoCourse',
     ext_modules=ext_modules,
     requires=['pybind11']
