@@ -77,17 +77,19 @@ void MotionEstimator::CEstimate(const unsigned char* cur_Y,
                 {
                     if (step == STEP)
                     {
+                        points_checked = 4;
                         checked_coords[0] = std::make_pair(step, 0); // up
-                        checked_coords[1] = std::make_pair(step, step);
-                        checked_coords[2] = std::make_pair(0, step); // right
-                        checked_coords[3] = std::make_pair(0-step, step);
-                        checked_coords[4] = std::make_pair(0-step, 0); // down
-                        checked_coords[5] = std::make_pair(0-step, 0-step);
-                        checked_coords[6] = std::make_pair(0, 0-step); // left
-                        checked_coords[7] = std::make_pair(step, 0-step);
+                        //checked_coords[1] = std::make_pair(step, step);
+                        checked_coords[1] = std::make_pair(0, step); // right
+                        //checked_coords[3] = std::make_pair(0-step, step);
+                        checked_coords[2] = std::make_pair(0-step, 0); // down
+                        //checked_coords[5] = std::make_pair(0-step, 0-step);
+                        checked_coords[3] = std::make_pair(0, 0-step); // left
+                        //checked_coords[7] = std::make_pair(step, 0-step);
                     }
                     else
                     {
+                        points_checked = 8;
                         int prev_x = checked_coords[previous_step].second;
                         int prev_y = checked_coords[previous_step].first;
                         checked_coords[0] = std::make_pair(prev_y+step, prev_x); // up
@@ -155,17 +157,19 @@ void MotionEstimator::CEstimate(const unsigned char* cur_Y,
                         {
                             if (step == STEP)
                             {
+                                points_checked = 4;
                                 checked_coords[0] = std::make_pair(step, 0); // up
-                                checked_coords[1] = std::make_pair(step, step);
-                                checked_coords[2] = std::make_pair(0, step); // right
-                                checked_coords[3] = std::make_pair(0-step, step);
-                                checked_coords[4] = std::make_pair(0-step, 0); // down
-                                checked_coords[5] = std::make_pair(0-step, 0-step);
-                                checked_coords[6] = std::make_pair(0, 0-step); // left
-                                checked_coords[7] = std::make_pair(step, 0-step);
+                                //checked_coords[1] = std::make_pair(step, step);
+                                checked_coords[1] = std::make_pair(0, step); // right
+                                //checked_coords[3] = std::make_pair(0-step, step);
+                                checked_coords[2] = std::make_pair(0-step, 0); // down
+                                //checked_coords[5] = std::make_pair(0-step, 0-step);
+                                checked_coords[3] = std::make_pair(0, 0-step); // left
+                                //checked_coords[7] = std::make_pair(step, 0-step);
                             }
                             else
                             {
+                                points_checked = 8;
                                 int prev_x = checked_coords[previous_step].second;
                                 int prev_y = checked_coords[previous_step].first;
                                 checked_coords[0] = std::make_pair(prev_y+step, prev_x); // up
@@ -201,7 +205,6 @@ void MotionEstimator::CEstimate(const unsigned char* cur_Y,
                             for (int x = -BORDER; x <= BORDER; ++x) {
                                 const auto comp = prev + y * width_ext + x;
                                 const int error = GetErrorSAD_8x8(cur, comp, width_ext);
-
                                 if (error < subvector.error) {
                                     subvector.x = x;
                                     subvector.y = y;
