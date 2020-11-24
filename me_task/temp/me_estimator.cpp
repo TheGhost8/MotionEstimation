@@ -232,7 +232,7 @@ void MotionEstimator::CEstimate(const unsigned char* cur_Y,
                             }
                             */
                         }
-                        ++probabilities[i*num_blocks_hor*points_checked+j*points_checked+ordered_tops[first_step]];
+                        //++probabilities[i*num_blocks_hor*points_checked+j*points_checked+ordered_tops[first_step]];
 
                         for (int step = int(STEP/2); step > 0; step=int(step/2))
                         {

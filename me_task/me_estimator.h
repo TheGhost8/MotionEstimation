@@ -54,8 +54,22 @@ public:
     /**
      * Step to 4 directions (up, down, left, right) from current block while searching.
      * <= BLOCK_SIZE
+     * DONT TOUCH!
      */
     static constexpr int STEP = 4;
+
+    /// 4 directions for first block (N, S, E, W)
+    static constexpr int DIRECTIONS = 4;
+    static constexpr int WIDE_DIRECTIONS = 8;  
+
+    /// Error for split 16x16 to 8x8
+    static constexpr int FIRST_SPLIT_ERROR = 1000;
+
+    /// Error for probable block 16x16 being choosed in following order: step 1, step 2, step 3
+    static constexpr int PROB_ERROR_16[3] {1750, 900, 700};
+
+    /// Error for probable block 8x8 being choosed in following order: step 1, step 2, step 3
+    static constexpr int PROB_ERROR_8[3] {800, 700, 600};
 
 private:
     /// Frame width (not including borders)
@@ -98,6 +112,11 @@ private:
     /// Buffers for frames
     unsigned char* cur_Y_borders;
     unsigned char* prev_Y_borders;
+
+    /// Probabilities of directions for each step
+    uint32_t* probabilities_first;
+    uint32_t* probabilities_second;
+    uint32_t* probabilities_third;
 
     /**
      * Estimate motion between two frames
