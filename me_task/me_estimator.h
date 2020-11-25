@@ -65,11 +65,6 @@ public:
     /// Error for split 16x16 to 8x8
     static constexpr int FIRST_SPLIT_ERROR = 1000;
 
-    /// Error for probable block 16x16 being choosed in following order: step 1, step 2, step 3
-    static constexpr int PROB_ERROR_16[3] {1750, 900, 700};
-
-    /// Error for probable block 8x8 being choosed in following order: step 1, step 2, step 3
-    static constexpr int PROB_ERROR_8[3] {800, 700, 600};
 
 private:
     /// Frame width (not including borders)
@@ -117,6 +112,14 @@ private:
     uint32_t* probabilities_first;
     uint32_t* probabilities_second;
     uint32_t* probabilities_third;
+
+    /// Error for probable block 16x16 being choosed in following order: step 1, step 2, step 3
+    //static constexpr int PROB_ERROR_16[3] {1750, 900, 700};
+    int32_t* PROB_ERROR_16;
+
+    /// Error for probable block 8x8 being choosed in following order: step 1, step 2, step 3
+    //static constexpr int PROB_ERROR_8[3] {800, 700, 600};
+    int32_t* PROB_ERROR_8;
 
     /**
      * Estimate motion between two frames

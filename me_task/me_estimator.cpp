@@ -28,6 +28,35 @@ MotionEstimator::MotionEstimator(size_t width, size_t height, unsigned char qual
     probabilities_first = new uint32_t[num_blocks_vert*num_blocks_hor*DIRECTIONS]{1};
     probabilities_second = new uint32_t[num_blocks_vert*num_blocks_hor*WIDE_DIRECTIONS]{1};
     probabilities_third = new uint32_t[num_blocks_vert*num_blocks_hor*WIDE_DIRECTIONS]{1};
+
+
+    switch (quality)
+    {
+        case 100:
+            PROB_ERROR_16 = new int32_t[3]{1750, 900, 700};
+            PROB_ERROR_8 = new int32_t[3]{700, 600, 500};
+            break;
+        case 80:
+            PROB_ERROR_16 = new int32_t[3]{2000, 1100, 900};
+            PROB_ERROR_8 = new int32_t[3]{900, 800, 700};
+            break;
+        case 60:
+            PROB_ERROR_16 = new int32_t[3]{2300, 1200, 1000};
+            PROB_ERROR_8 = new int32_t[3]{900, 800, 700};
+            break;
+        case 40:
+            PROB_ERROR_16 = new int32_t[3]{3000, 2000, 1500};
+            PROB_ERROR_8 = new int32_t[3]{1000, 900, 800};
+            break;
+        case 20:
+            PROB_ERROR_16 = new int32_t[3]{6000, 4000, 2500};
+            PROB_ERROR_8 = new int32_t[3]{1100, 1000, 900};
+            break;
+        default:
+            PROB_ERROR_16 = new int32_t[3]{1750, 900, 700};
+            PROB_ERROR_8 = new int32_t[3]{800, 700, 600};
+            break;
+    }
 }
 
 MotionEstimator::~MotionEstimator() {
@@ -43,6 +72,8 @@ MotionEstimator::~MotionEstimator() {
     delete[] probabilities_first;
     delete[] probabilities_second;
     delete[] probabilities_third;
+    delete[] PROB_ERROR_16;
+    delete[] PROB_ERROR_8;
 }
 
 void SortTops(uint8_t* tops, const uint32_t* probabilities, int length)
@@ -50,6 +81,10 @@ void SortTops(uint8_t* tops, const uint32_t* probabilities, int length)
     int third;
     for (int i = 0; i < length; ++i)
     {
+        if (probabilities[tops[i]] == 1)
+        {
+            break;
+        }
         for (int j = i+1; j < length; ++j)
         {
             if (probabilities[tops[i]] < probabilities[tops[j]])
