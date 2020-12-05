@@ -1,6 +1,5 @@
 #include "me_estimator.h"
 #include "metric.h"
-#include <iostream>
 
 
 MotionEstimator::MotionEstimator(size_t width, size_t height, unsigned char quality, bool use_half_pixel)
@@ -24,11 +23,6 @@ MotionEstimator::MotionEstimator(size_t width, size_t height, unsigned char qual
         prev_Y_left_borders = new unsigned char[width_borders * height_borders];
     }
     // PUT YOUR CODE HERE
-
-    probabilities_first = new uint32_t[num_blocks_vert*num_blocks_hor*DIRECTIONS]{1};
-    probabilities_second = new uint32_t[num_blocks_vert*num_blocks_hor*WIDE_DIRECTIONS]{1};
-    probabilities_third = new uint32_t[num_blocks_vert*num_blocks_hor*WIDE_DIRECTIONS]{1};
-
 
     switch (quality)
     {
@@ -69,14 +63,11 @@ MotionEstimator::~MotionEstimator() {
     }
     // PUT YOUR CODE HERE
 
-    delete[] probabilities_first;
-    delete[] probabilities_second;
-    delete[] probabilities_third;
     delete[] PROB_ERROR_16;
     delete[] PROB_ERROR_8;
 }
 
-void SortTops(uint8_t* tops, const uint32_t* probabilities, int length)
+void SortTops(uint8_t* tops, uint32_t* probabilities, int length)
 {
     int third;
     for (int i = 0; i < length; ++i)
@@ -113,6 +104,12 @@ void MotionEstimator::CEstimate(const unsigned char* cur_Y,
         prev_map.emplace(ShiftDir::UPLEFT, prev_Y_upleft);
     }
 
+    std::vector<MV> vectors_candidates;
+    uint32_t frame_probability_first[DIRECTIONS]{1,1,1,1};
+    uint32_t frame_probability_second[WIDE_DIRECTIONS]{1,1,1,1,1,1,1,1};
+    uint8_t ordered_first_tops[DIRECTIONS]{0,1,2,3};
+    uint8_t ordered_second_tops[WIDE_DIRECTIONS]{0,1,2,3,4,5,6,7};
+
     for (size_t i = 0; i < num_blocks_vert; ++i)
     {
         for (size_t j = 0; j < num_blocks_hor; ++j)
@@ -126,24 +123,134 @@ void MotionEstimator::CEstimate(const unsigned char* cur_Y,
 
             // PUT YOUR CODE HERE
             
+            vectors_candidates.clear();
+            bool adding = true;
+            for (size_t u = i-1; u <= i+2; ++u)
+            {
+                if (u == i+1)
+                {
+                    continue;
+                }
+                for (size_t v = j-1; v <= j+1; ++v)
+                {
+                    adding = false;
+                    if ((u >= 0) && (u < num_blocks_vert) && (v >= 0) && (v < num_blocks_hor))
+                    {
+                        adding = true;
+                        for (uint32_t k = 0; k < vectors_candidates.size(); ++k)
+                        {
+                            if (abs(mvectors.get_mv(v, u).x - vectors_candidates[k].x) + abs(mvectors.get_mv(v, u).y - vectors_candidates[k].y) <= CANDIDATE_VECTOR_ERROR)
+                            {
+                                adding = false;
+                                break;
+                            }
+                        }
+                    }
+                    if (adding)
+                    {
+                        vectors_candidates.push_back(mvectors.get_mv(v, u));
+                    }
+                }
+            }
+            if (j-2 >= 0)// && (i+1 < num_blocks_vert))
+            {
+                for (size_t u = i+1; u <= i+1; ++u)
+                {
+                    if (u < num_blocks_vert)
+                    {
+                        adding = true;
+                        for (uint32_t k = 0; k < vectors_candidates.size(); ++k)
+                        {
+                            if (abs(mvectors.get_mv(j-2, u).x - vectors_candidates[k].x) + abs(mvectors.get_mv(j-2, u).y - vectors_candidates[k].y) <= CANDIDATE_VECTOR_ERROR)
+                            {
+                                adding = false;
+                                break;
+                            }
+                        }
+                        if (adding)
+                        {
+                            vectors_candidates.push_back(mvectors.get_mv(j-2, u));
+                        }
+                    }
+                }
+            }
+            if (j+2 < num_blocks_hor)
+            {
+                for (size_t u = i; u <= i+1; ++u)
+                {
+                    if (u < num_blocks_vert)
+                    {
+                        adding = true;
+                        for (uint32_t k = 0; k < vectors_candidates.size(); ++k)
+                        {
+                            if (abs(mvectors.get_mv(j+2, u).x - vectors_candidates[k].x) + abs(mvectors.get_mv(j+2, u).y - vectors_candidates[k].y) <= CANDIDATE_VECTOR_ERROR)
+                            {
+                                adding = false;
+                                break;
+                            }
+                        }
+                        if (adding)
+                        {
+                            vectors_candidates.push_back(mvectors.get_mv(j+2, u));
+                        }
+                    }
+                }
+            }
+            
             int first_step = 0;
             int previous_step = 0;
             int points_checked = 8;
             std::pair<int, int> checked_coords[points_checked];
-            uint8_t ordered_first_tops[DIRECTIONS]{0,1,2,3};
-            uint8_t ordered_second_tops[WIDE_DIRECTIONS]{0,1,2,3,4,5,6,7};
-            uint8_t start_indexes[WIDE_DIRECTIONS]{0,1,2,3,4,5,6,7};
-            SortTops(ordered_first_tops, &probabilities_first[i*num_blocks_hor*DIRECTIONS+j*DIRECTIONS], DIRECTIONS);
 
             for (const auto& prev_pair : prev_map)
             {
                 const auto prev = prev_pair.second + vert_offset + hor_offset;
+                
+                for (uint32_t k = 0; k < vectors_candidates.size(); ++k)
+                {
+                    if (vectors_candidates[k].IsSplit())
+                    {
+                        for (int s = 0; s < 4; s++)
+                        {
+                            const auto comp = prev + vectors_candidates[k].SubVector(s).y * width_ext + vectors_candidates[k].SubVector(s).x;
+                            const int error = GetErrorSAD_16x16(cur, comp, width_ext);
+                            if (error < best_vector.error)
+                            {
+                                best_vector.x = vectors_candidates[k].SubVector(s).x;
+                                best_vector.y = vectors_candidates[k].SubVector(s).y;
+                                best_vector.shift_dir = prev_pair.first;
+                                best_vector.error = error;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        const auto comp = prev + vectors_candidates[k].y * width_ext + vectors_candidates[k].x;
+                        const int error = GetErrorSAD_16x16(cur, comp, width_ext);
+                        if (error < best_vector.error)
+                        {
+                            best_vector.x = vectors_candidates[k].x;
+                            best_vector.y = vectors_candidates[k].y;
+                            best_vector.shift_dir = prev_pair.first;
+                            best_vector.error = error;
+                        }
+                    }
+                    if (best_vector.error < STATIC_BLOCK_ERROR)
+                    {
+                        break;
+                    }
+                }
+
+                if (best_vector.error < MAX_VECTOR_ERROR_16)
+                {
+                    continue;
+                }
 
                 points_checked = 4;
-                checked_coords[0] = std::make_pair(STEP, 0); // up
-                checked_coords[1] = std::make_pair(0, STEP); // right
-                checked_coords[2] = std::make_pair(0-STEP, 0); // down
-                checked_coords[3] = std::make_pair(0, 0-STEP); // left
+                checked_coords[0] = std::make_pair(best_vector.y+STEP, best_vector.x); // up
+                checked_coords[1] = std::make_pair(best_vector.y, best_vector.x+STEP); // right
+                checked_coords[2] = std::make_pair(best_vector.y-STEP, best_vector.x); // down
+                checked_coords[3] = std::make_pair(best_vector.y, best_vector.x-STEP); // left
 
                 for (first_step = 0; first_step < points_checked; ++first_step)
                 {
@@ -157,26 +264,19 @@ void MotionEstimator::CEstimate(const unsigned char* cur_Y,
                         best_vector.error = error;
                         previous_step = ordered_first_tops[first_step];
                     }
-                    if (error < PROB_ERROR_16[0])
+                    if (best_vector.error < PROB_ERROR_16[0])
                     {
-                        //std::cout << "16x16  first_step " << first_step << " " << error << " " << PROB_ERROR_16[0] << std::endl;
                         break;
                     }
                 }
-                ++probabilities_first[i*num_blocks_hor*DIRECTIONS+j*DIRECTIONS+ordered_first_tops[first_step]];
+                ++frame_probability_first[ordered_first_tops[first_step]];
+                if (first_step >= STEPS_TO_SORT)
+                {
+                    SortTops(ordered_first_tops, frame_probability_first, DIRECTIONS);
+                }
 
                 for (int step = int(STEP/2); step > 0; step=int(step/2))
                 {
-                    std::copy(start_indexes, start_indexes + WIDE_DIRECTIONS, ordered_second_tops);
-                    if (step == int(STEP/2))
-                    {
-                        SortTops(ordered_second_tops, &probabilities_second[i*num_blocks_hor*WIDE_DIRECTIONS+j*WIDE_DIRECTIONS], WIDE_DIRECTIONS);
-                    }
-                    else
-                    {
-                        SortTops(ordered_second_tops, &probabilities_third[i*num_blocks_hor*WIDE_DIRECTIONS+j*WIDE_DIRECTIONS], WIDE_DIRECTIONS);
-                    }
-
                     points_checked = 8;
                     int prev_x = checked_coords[previous_step].second;
                     int prev_y = checked_coords[previous_step].first;
@@ -201,25 +301,15 @@ void MotionEstimator::CEstimate(const unsigned char* cur_Y,
                             best_vector.error = error;
                             previous_step = ordered_second_tops[k];
                         }
-                        if ((step == int(STEP/2)) && (error < PROB_ERROR_16[1]))
+                        if (best_vector.error < PROB_ERROR_16[int(STEP/2)])
                         {
-                            //std::cout << "16x16 second_step " << k << " " << error << " " << PROB_ERROR_16[1] << std::endl;
-                            break;
-                        }
-                        else if (error < PROB_ERROR_16[2])
-                        {
-                            //std::cout << "16x16  third_step " << k << " " << error << " " << PROB_ERROR_16[2] << std::endl;
                             break;
                         }
                     }
-
-                    if (step == int(STEP/2))
+                    ++frame_probability_second[ordered_second_tops[previous_step]];
+                    if (previous_step >= STEPS_TO_SORT)
                     {
-                        ++probabilities_second[i*num_blocks_hor*DIRECTIONS+j*DIRECTIONS+previous_step];
-                    }
-                    else
-                    {
-                        ++probabilities_third[i*num_blocks_hor*DIRECTIONS+j*DIRECTIONS+previous_step];
+                        SortTops(ordered_second_tops, frame_probability_second, WIDE_DIRECTIONS);
                     }
                 }
             }
@@ -254,24 +344,61 @@ void MotionEstimator::CEstimate(const unsigned char* cur_Y,
                     const auto vert_offset = first_row_offset + (i * BLOCK_SIZE + ((h > 1) ? BLOCK_SIZE / 2 : 0)) * width_ext;
                     const auto cur = cur_Y + vert_offset + hor_offset;
 
+
                     int first_step = 0;
                     int previous_step = 0;
                     int points_checked = 8;
                     std::pair<int, int> checked_coords[points_checked];
-                    uint8_t ordered_first_tops[DIRECTIONS]{0,1,2,3};
-                    uint8_t ordered_second_tops[WIDE_DIRECTIONS]{0,1,2,3,4,5,6,7};
-                    uint8_t start_indexes[WIDE_DIRECTIONS]{0,1,2,3,4,5,6,7};
-                    SortTops(ordered_first_tops, &probabilities_first[i*num_blocks_hor*DIRECTIONS+j*DIRECTIONS], DIRECTIONS);
 
                     for (const auto& prev_pair : prev_map)
                     {
                         const auto prev = prev_pair.second + vert_offset + hor_offset;
 
+                        for (uint32_t k = 0; k < vectors_candidates.size(); ++k)
+                        {
+                            if (vectors_candidates[k].IsSplit())
+                            {
+                                for (int s = 0; s < 4; s++)
+                                {
+                                    const auto comp = prev + vectors_candidates[k].SubVector(s).y * width_ext + vectors_candidates[k].SubVector(s).x;
+                                    const int error = GetErrorSAD_8x8(cur, comp, width_ext);
+                                    if (error < subvector.error)
+                                    {
+                                        subvector.x = vectors_candidates[k].SubVector(s).x;
+                                        subvector.y = vectors_candidates[k].SubVector(s).y;
+                                        subvector.shift_dir = prev_pair.first;
+                                        subvector.error = error;
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                const auto comp = prev + vectors_candidates[k].y * width_ext + vectors_candidates[k].x;
+                                const int error = GetErrorSAD_8x8(cur, comp, width_ext);
+                                if (error < subvector.error)
+                                {
+                                    subvector.x = vectors_candidates[k].x;
+                                    subvector.y = vectors_candidates[k].y;
+                                    subvector.shift_dir = prev_pair.first;
+                                    subvector.error = error;
+                                }
+                            }
+                            if (subvector.error < STATIC_BLOCK_ERROR)
+                            {
+                                break;
+                            }
+                        }
+
+                        if (subvector.error < MAX_VECTOR_ERROR_8)
+                        {
+                            continue;
+                        }
+                        
                         points_checked = 4;
-                        checked_coords[0] = std::make_pair(STEP, 0); // up
-                        checked_coords[1] = std::make_pair(0, STEP); // right
-                        checked_coords[2] = std::make_pair(0-STEP, 0); // down
-                        checked_coords[3] = std::make_pair(0, 0-STEP); // left
+                        checked_coords[0] = std::make_pair(subvector.y+STEP, subvector.x); // up
+                        checked_coords[1] = std::make_pair(subvector.y, subvector.x+STEP); // right
+                        checked_coords[2] = std::make_pair(subvector.y-STEP, subvector.x); // down
+                        checked_coords[3] = std::make_pair(subvector.y, subvector.x-STEP); // left
 
                         for (first_step = 0; first_step < points_checked; ++first_step)
                         {
@@ -285,26 +412,19 @@ void MotionEstimator::CEstimate(const unsigned char* cur_Y,
                                 subvector.error = error;
                                 previous_step = ordered_first_tops[first_step];
                             }
-                            if (error < PROB_ERROR_8[0])
+                            if (subvector.error < PROB_ERROR_8[0])
                             {
-                                //std::cout << " 8x8   first_step " << first_step << " " << error << " " << PROB_ERROR_8[0] << std::endl;
                                 break;
                             }
                         }
-                        ++probabilities_first[i*num_blocks_hor*DIRECTIONS+j*DIRECTIONS+ordered_first_tops[first_step]];
+                        ++frame_probability_first[ordered_first_tops[first_step]];
+                        if (first_step >= STEPS_TO_SORT)
+                        {
+                            SortTops(ordered_first_tops, frame_probability_first, DIRECTIONS);
+                        }
 
                         for (int step = int(STEP/2); step > 0; step=int(step/2))
                         {
-                            std::copy(start_indexes, start_indexes + WIDE_DIRECTIONS, ordered_second_tops);
-                            if (step == int(STEP/2))
-                            {
-                                SortTops(ordered_second_tops, &probabilities_second[i*num_blocks_hor*WIDE_DIRECTIONS+j*WIDE_DIRECTIONS], WIDE_DIRECTIONS);
-                            }
-                            else
-                            {
-                                SortTops(ordered_second_tops, &probabilities_third[i*num_blocks_hor*WIDE_DIRECTIONS+j*WIDE_DIRECTIONS], WIDE_DIRECTIONS);
-                            }
-
                             points_checked = 8;
                             int prev_x = checked_coords[previous_step].second;
                             int prev_y = checked_coords[previous_step].first;
@@ -329,27 +449,18 @@ void MotionEstimator::CEstimate(const unsigned char* cur_Y,
                                     subvector.error = error;
                                     previous_step = ordered_second_tops[k];
                                 }
-                                if ((step == int(STEP/2)) && (error < PROB_ERROR_8[1]))
+                                if (subvector.error < PROB_ERROR_8[int(STEP/2)])
                                 {
-                                    //std::cout << " 8x8  second_step " << k << " " << error << " " << PROB_ERROR_8[1] << std::endl;
-                                    break;
-                                }
-                                else if (error < PROB_ERROR_8[2])
-                                {
-                                    //std::cout << " 8x8   third_step " << k << " " << error << " " << PROB_ERROR_8[2] << std::endl;
                                     break;
                                 }
                             }
-
-                            if (step == int(STEP/2))
+                            ++frame_probability_second[ordered_second_tops[previous_step]];
+                            if (previous_step >= STEPS_TO_SORT)
                             {
-                                ++probabilities_second[i*num_blocks_hor*DIRECTIONS+j*DIRECTIONS+previous_step];
-                            }
-                            else
-                            {
-                                ++probabilities_third[i*num_blocks_hor*DIRECTIONS+j*DIRECTIONS+previous_step];
+                                SortTops(ordered_second_tops, frame_probability_second, WIDE_DIRECTIONS);
                             }
                         }
+                        
                     }
                         
                     // PUT YOUR CODE HERE

@@ -5,6 +5,8 @@
 #include <cassert>
 #include <limits>
 #include <memory>
+#include <iostream>
+#include <cmath>
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
 
@@ -65,6 +67,16 @@ public:
     /// Error for split 16x16 to 8x8
     static constexpr int FIRST_SPLIT_ERROR = 1000;
 
+    /// Error between two vectors while choosing candidates
+    static constexpr int CANDIDATE_VECTOR_ERROR = 1;
+
+    /// MAX_VECTOR_ERROR_16 <= FIRST_SPLIT_ERROR (NO DOUBT)
+    static constexpr int MAX_VECTOR_ERROR_16 = 1000;
+    static constexpr int MAX_VECTOR_ERROR_8 = 700;
+    static constexpr int STATIC_BLOCK_ERROR = 100;
+
+    static constexpr int STEPS_TO_SORT = 5;
+
 
 private:
     /// Frame width (not including borders)
@@ -107,11 +119,6 @@ private:
     /// Buffers for frames
     unsigned char* cur_Y_borders;
     unsigned char* prev_Y_borders;
-
-    /// Probabilities of directions for each step
-    uint32_t* probabilities_first;
-    uint32_t* probabilities_second;
-    uint32_t* probabilities_third;
 
     /// Error for probable block 16x16 being choosed in following order: step 1, step 2, step 3
     //static constexpr int PROB_ERROR_16[3] {1750, 900, 700};
