@@ -27,30 +27,61 @@ MotionEstimator::MotionEstimator(size_t width, size_t height, unsigned char qual
     switch (quality)
     {
         case 100:
-            PROB_ERROR_16 = new int32_t[3]{1750, 900, 700};
-            PROB_ERROR_8 = new int32_t[3]{700, 600, 500};
+            PROB_ERROR_16 = new uint32_t[3]{1750, 900, 700};
+            PROB_ERROR_8 = new uint32_t[3]{700, 600, 500};
+            MAX_VECTOR_ERROR_16 = 1000;
+            MAX_VECTOR_ERROR_8 = 700;
+            COEF_16 = 0.1;
+            COEF_8 = 0.1;
+            START_WEIGHT = 0.25;
             //EXIT_ERROR_16 = new int32_t[3]{1750, 900, 700};
             //EXIT_ERROR_8 = new int32_t[3]{700, 600, 500};
             break;
         case 80:
-            PROB_ERROR_16 = new int32_t[3]{2000, 1100, 900};
-            PROB_ERROR_8 = new int32_t[3]{900, 800, 700};
+            PROB_ERROR_16 = new uint32_t[3]{2000, 1100, 900};
+            PROB_ERROR_8 = new uint32_t[3]{900, 800, 700};
+            MAX_VECTOR_ERROR_16 = 1000;
+            MAX_VECTOR_ERROR_8 = 700;
+            COEF_16 = 0.65;
+            COEF_8 = 0.85;
+            START_WEIGHT = 0.20;
             break;
         case 60:
-            PROB_ERROR_16 = new int32_t[3]{2300, 1200, 1000};
-            PROB_ERROR_8 = new int32_t[3]{900, 800, 700};
+            PROB_ERROR_16 = new uint32_t[3]{2300, 1200, 1000};
+            PROB_ERROR_8 = new uint32_t[3]{900, 800, 700};
+            MAX_VECTOR_ERROR_16 = 1000;
+            MAX_VECTOR_ERROR_8 = 700;
+            COEF_16 = 0.35;
+            COEF_8 = 0.5;
+            START_WEIGHT = 0.10;
             break;
         case 40:
-            PROB_ERROR_16 = new int32_t[3]{3000, 2000, 1500};
-            PROB_ERROR_8 = new int32_t[3]{1000, 900, 800};
+            PROB_ERROR_16 = new uint32_t[3]{3000, 2000, 1500};
+            PROB_ERROR_8 = new uint32_t[3]{1000, 900, 800};
+            MAX_VECTOR_ERROR_16 = 1000;
+            MAX_VECTOR_ERROR_8 = 700;
+            COEF_16 = 0.5;
+            COEF_8 = 0.65;
+            START_WEIGHT = 0.15;
             break;
         case 20:
-            PROB_ERROR_16 = new int32_t[3]{6000, 4000, 2500};
-            PROB_ERROR_8 = new int32_t[3]{1100, 1000, 900};
+            PROB_ERROR_16 = new uint32_t[3]{6000, 4000, 2500};
+            PROB_ERROR_8 = new uint32_t[3]{1100, 1000, 900};
+            MAX_VECTOR_ERROR_16 = 1000;
+            MAX_VECTOR_ERROR_8 = 700;
+            // Other parameters dont needed
+            COEF_16 = 1;
+            COEF_8 = 1;
+            START_WEIGHT = 0.25;
             break;
         default:
-            PROB_ERROR_16 = new int32_t[3]{1750, 900, 700};
-            PROB_ERROR_8 = new int32_t[3]{800, 700, 600};
+            PROB_ERROR_16 = new uint32_t[3]{1750, 900, 700};
+            PROB_ERROR_8 = new uint32_t[3]{800, 700, 600};
+            MAX_VECTOR_ERROR_16 = 1000;
+            MAX_VECTOR_ERROR_8 = 700;
+            COEF_16 = 1;
+            COEF_8 = 1;
+            START_WEIGHT = 0.25;
             break;
     }
 }
@@ -111,11 +142,19 @@ void MotionEstimator::CEstimate(const unsigned char* cur_Y,
     std::vector<MV> vectors_candidates;
     uint32_t frame_probability_first[DIRECTIONS]{1,1,1,1};
     uint32_t frame_probability_second[WIDE_DIRECTIONS]{1,1,1,1,1,1,1,1};
+    //uint32_t frame_probability_second[WIDE_DIRECTIONS]{1,1,1,1};
     //uint32_t frame_probability_third[WIDE_DIRECTIONS]{1,1,1,1,1,1,1,1};
+
     uint8_t ordered_first_tops[DIRECTIONS]{0,1,2,3};
     uint8_t ordered_second_tops[WIDE_DIRECTIONS]{0,1,2,3,4,5,6,7};
+    //uint8_t ordered_second_tops[WIDE_DIRECTIONS]{0,1,2,3};
     //uint8_t ordered_third_tops[WIDE_DIRECTIONS]{0,1,2,3,4,5,6,7};
-    //int average_error = 0;
+
+    uint32_t average_errors_16[3]{0,0,0};
+    uint32_t average_errors_8[3]{0,0,0};
+
+    uint32_t average_vector_16 = 0;
+    uint32_t average_vector_8 = 0;
 
     for (size_t i = 0; i < num_blocks_vert; ++i)
     {
@@ -248,6 +287,7 @@ void MotionEstimator::CEstimate(const unsigned char* cur_Y,
                     }
                 }
 
+                average_vector_16 = uint32_t((average_vector_16 + best_vector.error) / 2);
                 if (best_vector.error < MAX_VECTOR_ERROR_16)
                 {
                     continue;
@@ -280,6 +320,11 @@ void MotionEstimator::CEstimate(const unsigned char* cur_Y,
                 if (first_step >= STEPS_TO_SORT)
                 {
                     SortTops(ordered_first_tops, frame_probability_first, DIRECTIONS);
+                }
+                average_errors_16[0] = uint32_t((average_errors_16[0] + best_vector.error) / 2);
+                if (quality == 20)
+                {
+                    continue;
                 }
                 /*
                 int points_triple;
@@ -342,13 +387,51 @@ void MotionEstimator::CEstimate(const unsigned char* cur_Y,
                         break;
                     }
                 }
-                ++frame_probability_second[ordered_second_tops[second_step]];
-                if (second_step >= STEPS_TO_SORT)
+                ++frame_probability_second[ordered_second_tops[previous_step]];
+                if (previous_step >= STEPS_TO_SORT)
                 {
                     SortTops(ordered_second_tops, frame_probability_second, DIRECTIONS);
                 }
+                
+                points_checked = 8;
+                prev_x = checked_coords[previous_step].second;
+                prev_y = checked_coords[previous_step].first;
+                checked_coords[0] = std::make_pair(prev_y+int(STEP/4), prev_x); // up
+                checked_coords[1] = std::make_pair(prev_y+int(STEP/4), prev_x+int(STEP/4));
+                checked_coords[2] = std::make_pair(prev_y, prev_x+int(STEP/4)); // right
+                checked_coords[3] = std::make_pair(prev_y-int(STEP/4), prev_x+int(STEP/4));
+                checked_coords[4] = std::make_pair(prev_y-int(STEP/4), prev_x); // down
+                checked_coords[5] = std::make_pair(prev_y-int(STEP/4), prev_x-int(STEP/4));
+                checked_coords[6] = std::make_pair(prev_y, prev_x-int(STEP/4)); // left
+                checked_coords[7] = std::make_pair(prev_y+int(STEP/4), prev_x-int(STEP/4));
+
+                for (int k = 0; k < points_checked; ++k)
+                {
+                    const auto comp = prev + checked_coords[ordered_third_tops[k]].first * width_ext + checked_coords[ordered_third_tops[k]].second;
+                    const int error = GetErrorSAD_16x16(cur, comp, width_ext);
+                    if (error < best_vector.error)
+                    {
+                        best_vector.x = checked_coords[ordered_third_tops[k]].second;
+                        best_vector.y = checked_coords[ordered_third_tops[k]].first;
+                        best_vector.shift_dir = prev_pair.first;
+                        best_vector.error = error;
+                        previous_step = ordered_third_tops[k];
+                    }
+                    if (best_vector.error < PROB_ERROR_16[2])
+                    {
+                        break;
+                    }
+                }
+                ++frame_probability_third[ordered_third_tops[previous_step]];
+                if (previous_step >= STEPS_TO_SORT)
+                {
+                    SortTops(ordered_third_tops, frame_probability_third, WIDE_DIRECTIONS);
+                }
                 */
-                for (int step = int(STEP/2); step > 0; step=int(step/2))
+                int step = int(STEP/2);
+                int last_steps = 2;
+                //for (int step = int(STEP/2); step > 0; step=int(step/2))
+                while (step > 0)
                 {
                     points_checked = 8;
                     int prev_x = checked_coords[previous_step].second;
@@ -388,7 +471,25 @@ void MotionEstimator::CEstimate(const unsigned char* cur_Y,
                     {
                         SortTops(ordered_second_tops, frame_probability_second, WIDE_DIRECTIONS);
                     }
+                    if (step == int(STEP/2))
+                    {
+                        average_errors_16[1] = uint32_t((average_errors_16[1] + best_vector.error) / 2);
+                    }
+                    else
+                    {
+                        average_errors_16[2] = uint32_t((average_errors_16[2] + best_vector.error) / 2);
+                    }
+                    step = int(step/2);
+                    if ((step == 1) && (last_steps > 0))
+                    {
+                        --last_steps;
+                    }
+                    else
+                    {
+                        step = 0;
+                    }
                 }
+                
             }
             
             // Brute force
@@ -466,6 +567,7 @@ void MotionEstimator::CEstimate(const unsigned char* cur_Y,
                             }
                         }
 
+                        average_vector_8 = uint32_t((average_vector_8 + subvector.error) / 2);
                         if (subvector.error < MAX_VECTOR_ERROR_8)
                         {
                             continue;
@@ -499,7 +601,78 @@ void MotionEstimator::CEstimate(const unsigned char* cur_Y,
                         {
                             SortTops(ordered_first_tops, frame_probability_first, DIRECTIONS);
                         }
+                        average_errors_8[0] = uint32_t((average_errors_8[0] + subvector.error) / 2);
+                        if (quality == 20)
+                        {
+                            continue;
+                        }
+                        /*
+                        points_checked = 4;
+                        int prev_x = checked_coords[previous_step].second;
+                        int prev_y = checked_coords[previous_step].first;
+                        checked_coords[0] = std::make_pair(prev_y+int(STEP/2), prev_x); // up
+                        checked_coords[1] = std::make_pair(prev_y, prev_x+int(STEP/2)); // right
+                        checked_coords[2] = std::make_pair(prev_y-int(STEP/2), prev_x); // down
+                        checked_coords[3] = std::make_pair(prev_y, prev_x-int(STEP/2)); // left
 
+                        for (int second_step = 0; second_step < points_checked; ++second_step)
+                        {
+                            const auto comp = prev + checked_coords[ordered_second_tops[second_step]].first * width_ext + checked_coords[ordered_second_tops[second_step]].second;
+                            const int error = GetErrorSAD_8x8(cur, comp, width_ext);
+                            if (error < subvector.error)
+                            {
+                                subvector.x = checked_coords[ordered_second_tops[second_step]].second;
+                                subvector.y = checked_coords[ordered_second_tops[second_step]].first;
+                                subvector.shift_dir = prev_pair.first;
+                                subvector.error = error;
+                                previous_step = ordered_second_tops[second_step];
+                            }
+                            if (subvector.error < PROB_ERROR_8[1])
+                            {
+                                break;
+                            }
+                        }
+                        ++frame_probability_second[ordered_second_tops[previous_step]];
+                        if (previous_step >= STEPS_TO_SORT)
+                        {
+                            SortTops(ordered_second_tops, frame_probability_second, DIRECTIONS);
+                        }
+                        
+                        points_checked = 8;
+                        prev_x = checked_coords[previous_step].second;
+                        prev_y = checked_coords[previous_step].first;
+                        checked_coords[0] = std::make_pair(prev_y+int(STEP/4), prev_x); // up
+                        checked_coords[1] = std::make_pair(prev_y+int(STEP/4), prev_x+int(STEP/4));
+                        checked_coords[2] = std::make_pair(prev_y, prev_x+int(STEP/4)); // right
+                        checked_coords[3] = std::make_pair(prev_y-int(STEP/4), prev_x+int(STEP/4));
+                        checked_coords[4] = std::make_pair(prev_y-int(STEP/4), prev_x); // down
+                        checked_coords[5] = std::make_pair(prev_y-int(STEP/4), prev_x-int(STEP/4));
+                        checked_coords[6] = std::make_pair(prev_y, prev_x-int(STEP/4)); // left
+                        checked_coords[7] = std::make_pair(prev_y+int(STEP/4), prev_x-int(STEP/4));
+
+                        for (int k = 0; k < points_checked; ++k)
+                        {
+                            const auto comp = prev + checked_coords[ordered_third_tops[k]].first * width_ext + checked_coords[ordered_third_tops[k]].second;
+                            const int error = GetErrorSAD_8x8(cur, comp, width_ext);
+                            if (error < subvector.error)
+                            {
+                                subvector.x = checked_coords[ordered_third_tops[k]].second;
+                                subvector.y = checked_coords[ordered_third_tops[k]].first;
+                                subvector.shift_dir = prev_pair.first;
+                                subvector.error = error;
+                                previous_step = ordered_third_tops[k];
+                            }
+                            if (subvector.error < PROB_ERROR_8[2])
+                            {
+                                break;
+                            }
+                        }
+                        ++frame_probability_third[ordered_third_tops[previous_step]];
+                        if (previous_step >= STEPS_TO_SORT)
+                        {
+                            SortTops(ordered_third_tops, frame_probability_third, WIDE_DIRECTIONS);
+                        }
+                        */
                         for (int step = int(STEP/2); step > 0; step=int(step/2))
                         {
                             points_checked = 8;
@@ -540,6 +713,14 @@ void MotionEstimator::CEstimate(const unsigned char* cur_Y,
                             {
                                 SortTops(ordered_second_tops, frame_probability_second, WIDE_DIRECTIONS);
                             }
+                            if (step == int(STEP/2))
+                            {
+                                average_errors_8[1] = uint32_t((average_errors_8[1] + subvector.error) / 2);
+                            }
+                            else
+                            {
+                                average_errors_8[2] = uint32_t((average_errors_8[2] + subvector.error) / 2);
+                            }
                         }
                         
                     }
@@ -572,14 +753,37 @@ void MotionEstimator::CEstimate(const unsigned char* cur_Y,
                     best_vector.Unsplit();
                 }
             }
-            /*if (best_vector.IsSplit())
+
+            //MAX_VECTOR_ERROR_16 = MAX_VECTOR_ERROR_16 + int32_t((int(MAX_VECTOR_ERROR_16) - int(average_vector_16)) * VECTOR_WEIGHT_16);
+            //MAX_VECTOR_ERROR_8 = MAX_VECTOR_ERROR_8 + int32_t((int(MAX_VECTOR_ERROR_8) - int(average_vector_8)) * VECTOR_WEIGHT_8);
+            for (int i = 0; i < 3; ++i)
             {
-                average_error = int((average_error + best_vector.SubVector(0).error + best_vector.SubVector(1).error + best_vector.SubVector(2).error + best_vector.SubVector(3).error) / 5);
+                int32_t error_defference_16 = abs(int(average_errors_16[i]) - int(PROB_ERROR_16[i]));
+                float weight_16;
+                if (error_defference_16 >= int32_t(PROB_ERROR_16[i] * COEF_16))
+                {
+                    weight_16 = START_WEIGHT;
+                }
+                else
+                {
+                    weight_16 = (error_defference_16 / 100) * 2;
+                }
+                PROB_ERROR_16[i] = PROB_ERROR_16[i] + int32_t((int(average_errors_16[i]) - int(PROB_ERROR_16[i])) * weight_16);
+                int32_t error_defference_8 = abs(int(average_errors_8[i]) - int(PROB_ERROR_8[i]));
+                float weight_8;
+                if (error_defference_8 >= int32_t(PROB_ERROR_8[i] * COEF_8))
+                {
+                    weight_8 = START_WEIGHT;
+                }
+                else
+                {
+                    weight_8 = (error_defference_8 / 100) * 2;
+                }
+                PROB_ERROR_8[i] = PROB_ERROR_8[i] + int32_t((int(average_errors_8[i]) - int(PROB_ERROR_8[i])) * weight_8);
             }
-            else
-            {
-                average_error = int((average_error + best_vector.error) / 2);
-            }*/
+            //std::cout << "16x16:  " << std::to_string(PROB_ERROR_16[0]) << "  " << std::to_string(PROB_ERROR_16[1]) << "  " << std::to_string(PROB_ERROR_16[2]) << std::endl;
+            //std::cout << "8x8:  " << std::to_string(PROB_ERROR_8[0]) << "  " << std::to_string(PROB_ERROR_8[1]) << "  " << std::to_string(PROB_ERROR_8[2]) << std::endl;
+
             mvectors.set_mv(j, i, best_vector);
         }
     }

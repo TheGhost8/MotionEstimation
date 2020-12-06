@@ -71,17 +71,18 @@ public:
     static constexpr int CANDIDATE_VECTOR_ERROR = 1;
 
     /// MAX_VECTOR_ERROR_16 <= FIRST_SPLIT_ERROR (NO DOUBT)
-    static constexpr int MAX_VECTOR_ERROR_16 = 1000;
-    static constexpr int MAX_VECTOR_ERROR_8 = 700;
+    //static constexpr int MAX_VECTOR_ERROR_16 = 1000;
+    //static constexpr int MAX_VECTOR_ERROR_8 = 700;
     static constexpr int STATIC_BLOCK_ERROR = 100;
 
     static constexpr int STEPS_TO_SORT = 5;
 
-    /// Error for exit with current block 16x16
-    //static constexpr int EXIT_ERROR_16 = 800;
+    //static constexpr float START_WEIGHT = 0.25;
+    //static constexpr float VECTOR_WEIGHT_16 = 0.01;
+    //static constexpr float VECTOR_WEIGHT_8 = 0.01;
 
-    /// Error for exit with current block 8x8
-    //static constexpr int EXIT_ERROR_8 = 400;
+    //static constexpr float COEF_16 = 1;
+    //static constexpr float COEF_8 = 1;
 
 
 private:
@@ -127,10 +128,17 @@ private:
     unsigned char* prev_Y_borders;
 
     /// Error for probable block 16x16 being choosed in following order: step 1, step 2, step 3
-    int32_t* PROB_ERROR_16;
+    uint32_t* PROB_ERROR_16;
 
     /// Error for probable block 8x8 being choosed in following order: step 1, step 2, step 3
-    int32_t* PROB_ERROR_8;
+    uint32_t* PROB_ERROR_8;
+
+    uint32_t MAX_VECTOR_ERROR_16;
+    uint32_t MAX_VECTOR_ERROR_8;
+
+    float COEF_16;
+    float COEF_8;
+    float START_WEIGHT;
 
     /**
      * Estimate motion between two frames
