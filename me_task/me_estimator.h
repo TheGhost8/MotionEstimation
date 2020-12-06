@@ -77,6 +77,12 @@ public:
 
     static constexpr int STEPS_TO_SORT = 5;
 
+    /// Error for exit with current block 16x16
+    //static constexpr int EXIT_ERROR_16 = 800;
+
+    /// Error for exit with current block 8x8
+    //static constexpr int EXIT_ERROR_8 = 400;
+
 
 private:
     /// Frame width (not including borders)
@@ -121,11 +127,9 @@ private:
     unsigned char* prev_Y_borders;
 
     /// Error for probable block 16x16 being choosed in following order: step 1, step 2, step 3
-    //static constexpr int PROB_ERROR_16[3] {1750, 900, 700};
     int32_t* PROB_ERROR_16;
 
     /// Error for probable block 8x8 being choosed in following order: step 1, step 2, step 3
-    //static constexpr int PROB_ERROR_8[3] {800, 700, 600};
     int32_t* PROB_ERROR_8;
 
     /**
